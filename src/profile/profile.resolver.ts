@@ -1,22 +1,16 @@
 import { Args, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
 import { SkillCategory } from '@prisma/client';
 import { Experience } from '../experience/experience.model';
-import { ExperienceService } from '../experience/experience.service';
+import { Loaders } from '../loaders/loaders.decorator';
+import type { RequestLoaders } from '../loaders/loaders.factory';
 import { Project } from '../project/project.model';
-import { ProjectService } from '../project/project.service';
 import { Skill } from '../skill/skill.model';
-import { SkillService } from '../skill/skill.service';
 import { Link, Profile } from './profile.model';
 import { ProfileService } from './profile.service';
 
 @Resolver(() => Profile)
 export class ProfileResolver {
-  constructor(
-    private readonly profileService: ProfileService,
-    private readonly skillService: SkillService,
-    private readonly experienceService: ExperienceService,
-    private readonly projectService: ProjectService,
-  ) {}
+  constructor(private readonly profileService: ProfileService) {}
 
   @Query(() => Profile)
   profile(@Args('slug', { type: () => String, nullable: true }) slug?: string) {
@@ -29,32 +23,28 @@ export class ProfileResolver {
   }
 
   @ResolveField(() => [Link])
-  async links(@Parent() profile: Profile) {
-    const [links] = await this.profileService.getLinksByProfileIds([
-      profile.id,
-    ]);
-    return links;
+  links(@Parent() profile: Profile, @Loaders() loaders: RequestLoaders) {
+    return loaders.links.load(profile.id);
   }
 
   @ResolveField(() => [Skill])
   async skills(
     @Parent() profile: Profile,
+    @Loaders() loaders: RequestLoaders,
     @Args('category', { type: () => SkillCategory, nullable: true })
     category?: SkillCategory,
   ) {
-    const [skills] = await this.skillService.getByProfileIds([profile.id]);
+    const skills = await loaders.skills.load(profile.id);
     return category ? skills.filter((s) => s.category === category) : skills;
   }
 
   @ResolveField(() => [Experience])
-  async experience(@Parent() profile: Profile) {
-    const [items] = await this.experienceService.getByProfileIds([profile.id]);
-    return items;
+  experience(@Parent() profile: Profile, @Loaders() loaders: RequestLoaders) {
+    return loaders.experience.load(profile.id);
   }
 
   @ResolveField(() => [Project])
-  async projects(@Parent() profile: Profile) {
-    const [projects] = await this.projectService.getByProfileIds([profile.id]);
-    return projects;
+  projects(@Parent() profile: Profile, @Loaders() loaders: RequestLoaders) {
+    return loaders.projects.load(profile.id);
   }
 }
